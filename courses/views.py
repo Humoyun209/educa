@@ -1,14 +1,23 @@
+from typing import Any
+from django.http import HttpRequest, HttpResponse
+from django.apps import apps
+from django.forms import modelform_factory
 from django.views.generic import ListView, UpdateView, CreateView, DeleteView
 from django.urls import reverse_lazy
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.shortcuts import redirect, get_object_or_404
+from django.views.generic.base import TemplateResponseMixin, View
 
-from courses.models import Course
+
+from courses.models import Content, Course, Module
+from courses.forms import ModuleFormSet
 
 
 class OwnerMixin:
     def get_queryset(self):
         qs = super().get_queryset()
         return qs.filter(owner=self.request.user)
-    
+
 
 class OwnerEditMixin:
     def form_valid(self, form):
@@ -16,27 +25,119 @@ class OwnerEditMixin:
         return super().form_valid(form)
 
 
-class OwnerCourseMixin(OwnerMixin):
+class OwnerCourseMixin(OwnerMixin, LoginRequiredMixin, PermissionRequiredMixin):
     model = Course
-    fields = ['subject', 'title', 'slug', 'overview']
-    success_url = reverse_lazy('manage_course_list')
-    
+    fields = ["subject", "title", "slug", "overview"]
+    success_url = reverse_lazy("manage_course_list")
 
-class OwnerCourseEditMixin(OwnerEditMixin):
-    template_name = 'courses/manage/course/form.html'
-    
+
+class OwnerCourseEditMixin(OwnerEditMixin, OwnerCourseMixin):
+    template_name = "courses/manage/course/form.html"
+
 
 class ManageCourseListView(OwnerCourseMixin, ListView):
-    template_name = 'courses/manage/course/list.html'
-    
-
-class CourseCreateView(OwnerCourseEditMixin, UpdateView):
-    pass
+    template_name = "courses/manage/course/list.html"
+    permission_required = "course.view_course"
 
 
-class CourseUpdateView(OwnerCourseEditMixin, CreateView):
-    pass
+class CourseCreateView(OwnerCourseEditMixin, CreateView):
+    permission_required = "course.create_course"
+
+
+class CourseUpdateView(OwnerCourseEditMixin, UpdateView):
+    permission_required = "course.change_course"
 
 
 class CourseDeleteView(OwnerCourseMixin, DeleteView):
-    template_name = 'courses/manage/course/delete.html'
+    template_name = "courses/manage/course/delete.html"
+    permission_required = "course.delete_course"
+
+
+class CourseModuleUpdateView(TemplateResponseMixin, View):
+    template_name = "courses/manage/module/formset.html"
+    course = None
+
+    def get_formset(self, data=None):
+        return ModuleFormSet(data=data, instance=self.course)
+
+    def dispatch(self, request: HttpRequest, pk: int) -> HttpResponse:
+        self.course = get_object_or_404(Course, id=pk, owner=request.user)
+        return super().dispatch(request, pk)
+
+    def post(self, request, *args, **kwargs):
+        formset = self.get_formset(data=self.request.POST)
+        if formset.is_valid():
+            formset.save()
+            return redirect("manage_course_list")
+        return self.render_to_response({"formset": formset, "course": self.course})
+
+    def get(self, request, *args, **kwargs):
+        formset = self.get_formset()
+        return self.render_to_response({"formset": formset, "course": self.course})
+
+
+class ContentCreateUpdateView(TemplateResponseMixin, View):
+    module = None
+    model = None
+    obj = None
+    template_name = "courses/manage/content/form.html"
+
+    def get_model(self, model_name):
+        if model_name in ["text", "video", "file", "image"]:
+            return apps.get_model(app_label="courses", model_name=model_name)
+        return None
+
+    def get_form(self, model, *args, **kwargs):
+        Form = modelform_factory(
+            model=self.model, exclude=["owner", "created", "updated", "order"]
+        )
+        return Form(*args, **kwargs)
+    
+    def dispatch(self, request: HttpRequest, module_id, model_name, id=None) -> HttpResponse:
+        self.model = self.get_model(model_name)
+        self.module = get_object_or_404(Module, 
+                                        id=module_id,
+                                        course__owner=request.user)
+        if id:
+            self.obj = get_object_or_404(self.model,
+                                         id=id,
+                                         owner=request.user)
+        
+        return super().dispatch(request, module_id, model_name, id)
+    
+    def get(self, request, module_id, model_name, id=None):
+        form = self.get_form(self.model, instance=self.obj)
+        return self.render_to_response({
+            'form': form,
+            'object': self.obj
+        })
+    
+    def post(self, request, module_id, model_name, id=None):
+        form = self.get_form(model=self.model,
+                             instance=self.obj,
+                             data=request.POST,
+                             files=request.FILES)
+        if form.is_valid():
+            obj = form.save(commit=False)
+            obj.owner = request.user
+            obj.save()
+            if not id:
+                Content.objects.create(module=self.module,
+                                       item=obj)
+            return redirect('module_content_list', self.module.id)
+        return self.render_to_response({
+            'form': form,
+            'object': self.obj
+        })
+
+
+class ContentDeleteView(View):
+    def post(self, request, id):
+        content = get_object_or_404(Content,
+                                    id=id,
+                                    module__course__owner=request.user)
+        module = content.module
+        content.item.delete()
+        content.delete()
+        return redirect('module_content_list', module.id)
+    
