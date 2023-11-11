@@ -1,7 +1,7 @@
 from django.http import HttpRequest, HttpResponse
 from django.apps import apps
 from django.forms import modelform_factory
-from django.views.generic import ListView, UpdateView, CreateView, DeleteView
+from django.views.generic import ListView, UpdateView, CreateView, DeleteView, DetailView
 from django.urls import reverse_lazy
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.shortcuts import redirect, get_object_or_404
@@ -9,8 +9,9 @@ from django.views.generic.base import TemplateResponseMixin, View
 
 from braces.views import CsrfExemptMixin, JsonRequestResponseMixin
 
-from courses.models import Content, Course, Module
+from courses.models import Content, Course, Module, Subject
 from courses.forms import ModuleFormSet
+from students.forms import CourseEnrollForm
 
 
 class OwnerMixin:
@@ -74,6 +75,24 @@ class CourseModuleUpdateView(TemplateResponseMixin, View):
     def get(self, request, *args, **kwargs):
         formset = self.get_formset()
         return self.render_to_response({"formset": formset, "course": self.course})
+
+
+class CourseDetailView(DetailView):
+    model = Course
+    template_name = 'courses/course/detail.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['enroll_form'] = CourseEnrollForm(initial={'course': self.object})
+        return context
+
+
+class CourseList(TemplateResponseMixin, View):
+    template_name = 'courses/course/list.html'
+
+    def get(self, request):
+        subjects = Subject.objects.prefetch_related('courses')
+        return  self.render_to_response({'subjects': subjects})
 
 
 class ContentCreateUpdateView(TemplateResponseMixin, View):

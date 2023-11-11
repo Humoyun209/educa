@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block title %} Course list {% endblock %}
+
+{% block content %}
+<h1>Course List</h1>
+
+{% for subject in subjects %}
+
+    <h3>Category: <b>{{ subject.title }}</b></h3>
+    {% for course in subject.courses.all %}
+        <h3>{{ course.title }}</h3>
+        <p>{{ course.overview }}</p>
+        <a href="{% url "course_detail" course.pk %}">Move to Course</a>
+<br><br>
+    {% empty %}
+        <h4>This category doesn't have a course</h4>
+    {% endfor %}
+
+{% empty %}
+    <h4>This category doesn't have a course</h4>
+{% endfor %}
+
+{% endblock %}

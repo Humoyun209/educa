@@ -24,6 +24,7 @@ urlpatterns = [
     path('account/register/', auth_views.LogoutView.as_view(), name='logout'),
     path('admin/', admin.site.urls),
     path ('course/', include('courses.urls')),
+    path ('students/', include('students.urls')),
 ]
 
 if settings.DEBUG:
