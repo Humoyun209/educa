@@ -18,7 +18,7 @@ from api.permissions import IsEnrolled
 
 class CourseViewset(ReadOnlyModelViewSet):
     authentication_classes = [BasicAuthentication]
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
     serializer_class = CourseSerializer
     queryset = Course.objects.all()
 

@@ -41,10 +41,12 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'students.apps.StudentsConfig',
+    'chat.apps.ChatConfig',
     'embed_video',
     'debug_toolbar',
     'redisboard',
     'rest_framework',
+    'channels',
 ]
 
 MIDDLEWARE = [
@@ -147,3 +149,6 @@ CACHES = {
 INTERNAL_IPS = [
     '127.0.0.1',
 ]
+
+
+ASGI_APPLICATION = 'educa.routing.application'
