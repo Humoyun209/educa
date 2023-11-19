@@ -3,7 +3,6 @@ from django.shortcuts import get_object_or_404
 from rest_framework.viewsets import ReadOnlyModelViewSet
 from rest_framework.authentication import (
     BaseAuthentication,
-    TokenAuthentication,
     BasicAuthentication,
 )
 from rest_framework.permissions import IsAuthenticated
@@ -16,7 +15,7 @@ from api.serializers import CourseSerializer
 from api.permissions import IsEnrolled
 
 
-class CourseViewset(ReadOnlyModelViewSet):
+class CourseViewSet(ReadOnlyModelViewSet):
     authentication_classes = [BasicAuthentication]
     # permission_classes = [IsAuthenticated]
     serializer_class = CourseSerializer
