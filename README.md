@@ -2,6 +2,7 @@
 
 - Приложение для учителей и студентов
 - Система управления контентом
+- Let's go
 
 **Run app**
 > git clone https://github.com/Humoyun209/educa/ <br>
